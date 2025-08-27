@@ -1,8 +1,16 @@
 const { Sequelize } = require('sequelize');
 const config = require('../config');
 
+// Check if DATABASE_URL is available
+const databaseUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
+if (!databaseUrl) {
+    console.error('❌ DATABASE_URL environment variable is not set!');
+    console.error('Please set DATABASE_URL in your Railway environment variables.');
+    process.exit(1);
+}
+
 // Database connection
-const sequelize = new Sequelize(process.env.DATABASE_URL || process.env.MYSQL_URL, {
+const sequelize = new Sequelize(databaseUrl, {
     dialect: 'mysql',
     logging: config.server.nodeEnv === 'development' ? console.log : false,
     pool: {
