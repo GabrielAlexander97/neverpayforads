@@ -14,7 +14,11 @@ class WebhookController {
             config: {
                 shopifyDomain: config.shopify.domain,
                 membershipSku: config.shopify.membershipSku,
-                webhookSecretConfigured: !!config.shopify.webhookSecret
+                membershipTag: config.shopify.membershipTag,
+                webhookSecretConfigured: !!config.shopify.webhookSecret,
+                databaseUrlConfigured: !!process.env.DATABASE_URL,
+                resendApiKeyConfigured: !!config.email.resendApiKey,
+                nodeEnv: config.server.nodeEnv
             }
         });
     }
@@ -133,7 +137,7 @@ class WebhookController {
                 return res.status(200).json({ message: 'Not a membership order' });
             }
 
-            // Process membership
+            // Process membership with better error handling
             console.log('🎯 Processing membership...');
             const customerEmail = orderData.email;
             const customerId = orderData.customer?.id?.toString();
@@ -144,57 +148,82 @@ class WebhookController {
             console.log('- Customer ID:', customerId);
             console.log('- Expires at:', expiresAt);
 
-            // Upsert user
-            console.log('👤 Upserting user...');
-            const [user, created] = await User.findOrCreate({
-                where: { email: customerEmail },
-                defaults: {
-                    shopify_customer_id: customerId,
-                    status: 'active',
-                    expires_at: expiresAt
-                }
-            });
-
-            if (!created) {
-                console.log('🔄 Updating existing user...');
-                // Update existing user
-                await user.update({
-                    status: 'active',
-                    expires_at: expiresAt,
-                    shopify_customer_id: customerId
+            // Upsert user with error handling
+            try {
+                console.log('👤 Upserting user...');
+                const [user, created] = await User.findOrCreate({
+                    where: { email: customerEmail },
+                    defaults: {
+                        shopify_customer_id: customerId,
+                        status: 'active',
+                        expires_at: expiresAt
+                    }
                 });
-            } else {
-                console.log('✅ Created new user');
+
+                if (!created) {
+                    console.log('🔄 Updating existing user...');
+                    // Update existing user
+                    await user.update({
+                        status: 'active',
+                        expires_at: expiresAt,
+                        shopify_customer_id: customerId
+                    });
+                } else {
+                    console.log('✅ Created new user');
+                }
+
+                // Create membership record with error handling
+                try {
+                    console.log('📝 Creating membership record...');
+                    await Membership.create({
+                        user_id: user.id,
+                        shopify_order_id: orderData.id.toString(),
+                        sku: config.shopify.membershipSku,
+                        active_from: new Date(),
+                        active_to: expiresAt
+                    });
+                    console.log('✅ Membership record created');
+                } catch (membershipError) {
+                    console.error('❌ Failed to create membership record:', membershipError);
+                    // Continue processing - don't fail the webhook
+                }
+
+                // Send magic login email with error handling
+                try {
+                    console.log('📧 Sending magic login email...');
+                    await emailService.sendMagicLoginEmail(customerEmail);
+                    console.log('✅ Magic login email sent');
+                } catch (emailError) {
+                    console.error('❌ Failed to send magic login email:', emailError);
+                    // Continue processing - don't fail the webhook
+                }
+
+                // Log webhook success
+                console.log(`✅ Membership activated for ${customerEmail}, order ${orderData.id}`);
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Membership processed successfully',
+                    customerEmail,
+                    orderId: orderData.id
+                });
+
+            } catch (dbError) {
+                console.error('❌ Database operation failed:', dbError);
+                // Still respond with 200 to prevent Shopify retries
+                res.status(200).json({
+                    success: false,
+                    message: 'Webhook received but database operation failed',
+                    error: dbError.message
+                });
             }
-
-            // Create membership record
-            console.log('📝 Creating membership record...');
-            await Membership.create({
-                user_id: user.id,
-                shopify_order_id: orderData.id.toString(),
-                sku: config.shopify.membershipSku,
-                active_from: new Date(),
-                active_to: expiresAt
-            });
-
-            // Send magic login email
-            console.log('📧 Sending magic login email...');
-            await emailService.sendMagicLoginEmail(customerEmail);
-
-            // Log webhook
-            console.log(`✅ Membership activated for ${customerEmail}, order ${orderData.id}`);
-
-            res.status(200).json({
-                success: true,
-                message: 'Membership processed successfully',
-                customerEmail,
-                orderId: orderData.id
-            });
 
         } catch (error) {
             console.error('❌ Webhook processing error:', error);
             console.error('Error stack:', error.stack);
-            res.status(500).json({
+
+            // Always respond with 200 to prevent Shopify retries
+            res.status(200).json({
                 error: 'Webhook processing failed',
                 message: error.message,
                 stack: config.server.nodeEnv === 'development' ? error.stack : undefined
