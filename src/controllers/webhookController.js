@@ -23,11 +23,10 @@ class WebhookController {
         try {
             console.log('🔔 Webhook received - Starting validation...');
 
-            // Debug: Check body type and content
-            console.log('📦 Body type:', typeof req.body);
-            console.log('📦 Body constructor:', req.body.constructor.name);
-            console.log('📦 Body length:', req.body.length);
-            console.log('📦 Body preview:', JSON.stringify(req.body));
+            // Debug: Check raw body
+            console.log('📦 Raw body type:', typeof req.rawBody);
+            console.log('📦 Raw body length:', req.rawBody?.length);
+            console.log('📦 Raw body preview:', req.rawBody?.substring(0, 200) + '...');
 
             // Log all headers for debugging
             console.log('📋 Headers received:', {
@@ -77,15 +76,13 @@ class WebhookController {
                 });
             }
 
-            // Verify HMAC
+            // Verify HMAC using raw body
             console.log('🔐 Verifying HMAC...');
             const expectedHmac = crypto
                 .createHmac('sha256', config.shopify.webhookSecret)
-                .update(JSON.stringify(req.body), 'utf8')
+                .update(req.rawBody, 'utf8')
                 .digest('base64');
 
-            console.log('🔐 Expected HMAC:', expectedHmac);
-            console.log('🔐 Received HMAC:', hmac);
             console.log('- HMAC verification:', hmac === expectedHmac);
             console.log('- Webhook secret configured:', !!config.shopify.webhookSecret);
 
@@ -104,7 +101,7 @@ class WebhookController {
 
             // Parse JSON after HMAC verification
             console.log('📄 Parsing webhook body...');
-            const orderData = JSON.parse(JSON.stringify(req.body));
+            const orderData = JSON.parse(req.rawBody);
             console.log('- Order ID:', orderData.id);
             console.log('- Customer email:', orderData.email);
             console.log('- Line items count:', orderData.line_items?.length || 0);
