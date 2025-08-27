@@ -24,10 +24,11 @@ class WebhookController {
             console.log('🔔 Webhook received - Starting validation...');
 
             // Debug: Check body type and content
-            console.log('📦 Body type:', typeof req.body);
-            console.log('📦 Body constructor:', req.body.constructor.name);
-            console.log('📦 Body length:', req.body.length);
-            console.log('📦 Body preview:', JSON.stringify(req.body));
+            console.log('📦 Raw body type:', typeof req.rawBody);
+            console.log('📦 Raw body length:', req.rawBody?.length);
+            console.log('📦 Raw body preview:', req.rawBody?.substring(0, 200) + '...');
+            console.log('📦 Parsed body type:', typeof req.body);
+            console.log('📦 Parsed body keys:', req.body ? Object.keys(req.body) : 'No body');
 
             // Log all headers for debugging
             console.log('📋 Headers received:', {
@@ -77,11 +78,11 @@ class WebhookController {
                 });
             }
 
-            // Verify HMAC
+            // Verify HMAC using raw body
             console.log('🔐 Verifying HMAC...');
             const expectedHmac = crypto
                 .createHmac('sha256', config.shopify.webhookSecret)
-                .update(req.body, 'utf8')
+                .update(req.rawBody, 'utf8')
                 .digest('base64');
 
             console.log('- HMAC verification:', hmac === expectedHmac);
@@ -102,22 +103,30 @@ class WebhookController {
 
             // Parse JSON after HMAC verification
             console.log('📄 Parsing webhook body...');
-            const orderData = JSON.parse(req.body.toString());
+            const orderData = JSON.parse(req.rawBody);
             console.log('- Order ID:', orderData.id);
             console.log('- Customer email:', orderData.email);
             console.log('- Line items count:', orderData.line_items?.length || 0);
 
             // Check if this is a membership purchase
             console.log('🔍 Checking for membership purchase...');
+            console.log('- Expected SKU:', config.shopify.membershipSku);
+            console.log('- Expected Tag:', config.shopify.membershipTag);
+
             const isMembership = orderData.line_items.some(item => {
                 const skuMatch = item.sku === config.shopify.membershipSku;
                 const tagMatch = item.product_id && this.hasMembershipTag(item.product_id);
-                console.log(`- Item SKU: ${item.sku}, matches: ${skuMatch}`);
-                return skuMatch || tagMatch;
+                const titleMatch = item.title && item.title.toLowerCase().includes('membership');
+
+                console.log(`- Item: "${item.title}"`);
+                console.log(`  - SKU: "${item.sku}" (matches: ${skuMatch})`);
+                console.log(`  - Product ID: ${item.product_id}`);
+                console.log(`  - Title contains "membership": ${titleMatch}`);
+
+                return skuMatch || tagMatch || titleMatch;
             });
 
             console.log('- Is membership order:', isMembership);
-            console.log('- Expected SKU:', config.shopify.membershipSku);
 
             if (!isMembership) {
                 console.log('ℹ️ Not a membership order - responding 200');
