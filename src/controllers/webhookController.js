@@ -23,10 +23,11 @@ class WebhookController {
         try {
             console.log('🔔 Webhook received - Starting validation...');
 
-            // Debug: Check raw body
-            console.log('📦 Raw body type:', typeof req.rawBody);
-            console.log('📦 Raw body length:', req.rawBody?.length);
-            console.log('📦 Raw body preview:', req.rawBody?.substring(0, 200) + '...');
+            // Debug: Check body type and content
+            console.log('📦 Body type:', typeof req.body);
+            console.log('📦 Body constructor:', req.body.constructor.name);
+            console.log('📦 Body length:', req.body.length);
+            console.log('📦 Body preview:', req.body.toString().substring(0, 200) + '...');
 
             // Log all headers for debugging
             console.log('📋 Headers received:', {
@@ -80,7 +81,7 @@ class WebhookController {
             console.log('🔐 Verifying HMAC...');
             const expectedHmac = crypto
                 .createHmac('sha256', config.shopify.webhookSecret)
-                .update(req.rawBody, 'utf8')
+                .update(req.body, 'utf8')
                 .digest('base64');
 
             console.log('- HMAC verification:', hmac === expectedHmac);
@@ -101,7 +102,7 @@ class WebhookController {
 
             // Parse JSON after HMAC verification
             console.log('📄 Parsing webhook body...');
-            const orderData = JSON.parse(req.rawBody);
+            const orderData = JSON.parse(req.body.toString());
             console.log('- Order ID:', orderData.id);
             console.log('- Customer email:', orderData.email);
             console.log('- Line items count:', orderData.line_items?.length || 0);
@@ -118,13 +119,42 @@ class WebhookController {
             console.log('- Is membership order:', isMembership);
             console.log('- Expected SKU:', config.shopify.membershipSku);
 
-            if (!isMembership) {
-                console.log('ℹ️ Not a membership order - responding 200');
-                return res.status(200).json({ message: 'Not a membership order' });
+            // Respond immediately to Shopify to prevent timeout
+            console.log('⚡ Responding to Shopify immediately...');
+            res.status(200).json({
+                success: true,
+                message: 'Webhook received successfully',
+                orderId: orderData.id,
+                isMembership: isMembership
+            });
+
+            // Process membership asynchronously (don't await)
+            if (isMembership) {
+                console.log('🎯 Processing membership asynchronously...');
+                this.processMembershipAsync(orderData).catch(error => {
+                    console.error('❌ Async membership processing failed:', error);
+                });
+            } else {
+                console.log('ℹ️ Not a membership order - no further processing needed');
             }
 
-            // Process membership
-            console.log('🎯 Processing membership...');
+        } catch (error) {
+            console.error('❌ Webhook processing error:', error);
+            console.error('Error stack:', error.stack);
+
+            // Always respond with 200 to prevent Shopify retries
+            res.status(200).json({
+                error: 'Webhook processing failed',
+                message: error.message
+            });
+        }
+    }
+
+    // Separate method for async membership processing
+    async processMembershipAsync(orderData) {
+        try {
+            console.log('🎯 Starting async membership processing...');
+
             const customerEmail = orderData.email;
             const customerId = orderData.customer?.id?.toString();
             const expiresAt = new Date();
@@ -171,24 +201,12 @@ class WebhookController {
             console.log('📧 Sending magic login email...');
             await emailService.sendMagicLoginEmail(customerEmail);
 
-            // Log webhook
+            // Log webhook success
             console.log(`✅ Membership activated for ${customerEmail}, order ${orderData.id}`);
 
-            res.status(200).json({
-                success: true,
-                message: 'Membership processed successfully',
-                customerEmail,
-                orderId: orderData.id
-            });
-
         } catch (error) {
-            console.error('❌ Webhook processing error:', error);
+            console.error('❌ Async membership processing error:', error);
             console.error('Error stack:', error.stack);
-            res.status(500).json({
-                error: 'Webhook processing failed',
-                message: error.message,
-                stack: config.server.nodeEnv === 'development' ? error.stack : undefined
-            });
         }
     }
 
