@@ -84,6 +84,8 @@ class WebhookController {
                 .update(JSON.stringify(req.body), 'utf8')
                 .digest('base64');
 
+            console.log('🔐 Expected HMAC:', expectedHmac);
+            console.log('🔐 Received HMAC:', hmac);
             console.log('- HMAC verification:', hmac === expectedHmac);
             console.log('- Webhook secret configured:', !!config.shopify.webhookSecret);
 
@@ -102,7 +104,7 @@ class WebhookController {
 
             // Parse JSON after HMAC verification
             console.log('📄 Parsing webhook body...');
-            const orderData = JSON.parse(req.body.toString());
+            const orderData = JSON.parse(JSON.stringify(req.body));
             console.log('- Order ID:', orderData.id);
             console.log('- Customer email:', orderData.email);
             console.log('- Line items count:', orderData.line_items?.length || 0);
