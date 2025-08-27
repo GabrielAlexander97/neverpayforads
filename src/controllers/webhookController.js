@@ -27,7 +27,7 @@ class WebhookController {
             console.log('📦 Body type:', typeof req.body);
             console.log('📦 Body constructor:', req.body.constructor.name);
             console.log('📦 Body length:', req.body.length);
-            console.log('📦 Body preview:', req.body.toString().substring(0, 200) + '...');
+            console.log('📦 Body preview:', JSON.stringify(req.body));
 
             // Log all headers for debugging
             console.log('📋 Headers received:', {
