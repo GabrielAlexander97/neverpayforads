@@ -23,6 +23,12 @@ class WebhookController {
         try {
             console.log('🔔 Webhook received - Starting validation...');
 
+            // Debug: Check body type and content
+            console.log('📦 Body type:', typeof req.body);
+            console.log('📦 Body constructor:', req.body.constructor.name);
+            console.log('📦 Body length:', req.body.length);
+            console.log('📦 Body preview:', req.body.toString().substring(0, 200) + '...');
+
             // Log all headers for debugging
             console.log('📋 Headers received:', {
                 hmac: req.headers['x-shopify-hmac-sha256'] ? 'Present' : 'Missing',
