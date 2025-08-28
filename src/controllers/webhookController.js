@@ -111,9 +111,8 @@ class WebhookController {
             console.log('🔍 Checking for membership purchase...');
             const isMembership = orderData.line_items.some(item => {
                 const skuMatch = item.sku === config.shopify.membershipSku;
-                const tagMatch = item.product_id && this.hasMembershipTag(item.product_id);
                 console.log(`- Item SKU: ${item.sku}, matches: ${skuMatch}`);
-                return skuMatch || tagMatch;
+                return skuMatch;
             });
 
             console.log('- Is membership order:', isMembership);
