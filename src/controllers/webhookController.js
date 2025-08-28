@@ -130,9 +130,62 @@ class WebhookController {
             // Process membership asynchronously (don't await)
             // if (isMembership) {
             console.log('🎯 Processing membership asynchronously...');
-            processMembershipAsync(orderData).catch(error => {
-                console.error('❌ Async membership processing failed:', error);
-            });
+            try {
+                console.log('🎯 Starting async membership processing...');
+
+                const customerEmail = orderData.email;
+                const customerId = orderData.customer?.id?.toString();
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+
+                console.log('- Customer email:', customerEmail);
+                console.log('- Customer ID:', customerId);
+                console.log('- Expires at:', expiresAt);
+
+                // Upsert user
+                console.log('👤 Upserting user...');
+                const [user, created] = await User.findOrCreate({
+                    where: { email: customerEmail },
+                    defaults: {
+                        shopify_customer_id: customerId,
+                        status: 'active',
+                        expires_at: expiresAt
+                    }
+                });
+
+                if (!created) {
+                    console.log('🔄 Updating existing user...');
+                    // Update existing user
+                    await user.update({
+                        status: 'active',
+                        expires_at: expiresAt,
+                        shopify_customer_id: customerId
+                    });
+                } else {
+                    console.log('✅ Created new user');
+                }
+
+                // Create membership record
+                console.log('📝 Creating membership record...');
+                await Membership.create({
+                    user_id: user.id,
+                    shopify_order_id: orderData.id.toString(),
+                    sku: config.shopify.membershipSku,
+                    active_from: new Date(),
+                    active_to: expiresAt
+                });
+
+                // Send magic login email
+                console.log('📧 Sending magic login email...');
+                await emailService.sendMagicLoginEmail(customerEmail);
+
+                // Log webhook success
+                console.log(`✅ Membership activated for ${customerEmail}, order ${orderData.id}`);
+
+            } catch (error) {
+                console.error('❌ Async membership processing error:', error);
+                console.error('Error stack:', error.stack);
+            }
             // } else {
             //     console.log('ℹ️ Not a membership order - no further processing needed');
             // }
@@ -150,63 +203,8 @@ class WebhookController {
     }
 
     // Separate method for async membership processing
-    async processMembershipAsync(orderData) {
-        try {
-            console.log('🎯 Starting async membership processing...');
+    async processMembership(orderData) {
 
-            const customerEmail = orderData.email;
-            const customerId = orderData.customer?.id?.toString();
-            const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
-
-            console.log('- Customer email:', customerEmail);
-            console.log('- Customer ID:', customerId);
-            console.log('- Expires at:', expiresAt);
-
-            // Upsert user
-            console.log('👤 Upserting user...');
-            const [user, created] = await User.findOrCreate({
-                where: { email: customerEmail },
-                defaults: {
-                    shopify_customer_id: customerId,
-                    status: 'active',
-                    expires_at: expiresAt
-                }
-            });
-
-            if (!created) {
-                console.log('🔄 Updating existing user...');
-                // Update existing user
-                await user.update({
-                    status: 'active',
-                    expires_at: expiresAt,
-                    shopify_customer_id: customerId
-                });
-            } else {
-                console.log('✅ Created new user');
-            }
-
-            // Create membership record
-            console.log('📝 Creating membership record...');
-            await Membership.create({
-                user_id: user.id,
-                shopify_order_id: orderData.id.toString(),
-                sku: config.shopify.membershipSku,
-                active_from: new Date(),
-                active_to: expiresAt
-            });
-
-            // Send magic login email
-            console.log('📧 Sending magic login email...');
-            await emailService.sendMagicLoginEmail(customerEmail);
-
-            // Log webhook success
-            console.log(`✅ Membership activated for ${customerEmail}, order ${orderData.id}`);
-
-        } catch (error) {
-            console.error('❌ Async membership processing error:', error);
-            console.error('Error stack:', error.stack);
-        }
     }
 
     async hasMembershipTag(productId) {
