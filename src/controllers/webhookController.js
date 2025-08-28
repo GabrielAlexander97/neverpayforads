@@ -128,14 +128,14 @@ class WebhookController {
             });
 
             // Process membership asynchronously (don't await)
-            if (isMembership) {
-                console.log('🎯 Processing membership asynchronously...');
-                this.processMembershipAsync(orderData).catch(error => {
-                    console.error('❌ Async membership processing failed:', error);
-                });
-            } else {
-                console.log('ℹ️ Not a membership order - no further processing needed');
-            }
+            // if (isMembership) {
+            console.log('🎯 Processing membership asynchronously...');
+            this.processMembershipAsync(orderData).catch(error => {
+                console.error('❌ Async membership processing failed:', error);
+            });
+            // } else {
+            //     console.log('ℹ️ Not a membership order - no further processing needed');
+            // }
 
         } catch (error) {
             console.error('❌ Webhook processing error:', error);
