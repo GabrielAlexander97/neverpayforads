@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
+const SequelizeStore = require('connect-session-sequelize')(session.Store);
 const config = require('./config');
-const { syncDatabase } = require('./database');
+const { syncDatabase, sequelize } = require('./database');
 
 // Import routes
 const shopifyRoutes = require('./routes/shopifyRoutes');
@@ -21,13 +22,20 @@ const app = express();
 // Initialize database
 syncDatabase().catch(console.error);
 
+// Create session store
+const sessionStore = new SequelizeStore({
+    db: sequelize,
+    tableName: 'sessions'
+});
+
 // Middleware
 app.use(cors(config.cors));
 app.use(express.json({ limit: '10mb' }));
 
-// Session middleware
+// Session middleware with database store
 app.use(session({
     secret: config.session.secret,
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: config.session.cookie

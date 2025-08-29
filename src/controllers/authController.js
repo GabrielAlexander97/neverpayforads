@@ -66,6 +66,15 @@ class AuthController {
             req.session.email = email;
             console.log('✅ Session set:', req.session);
 
+            // Force save the session
+            req.session.save((err) => {
+                if (err) {
+                    console.error('❌ Failed to save session:', err);
+                } else {
+                    console.log('✅ Session saved successfully');
+                }
+            });
+
             // Redirect to dashboard
             console.log('🔄 Redirecting to:', config.app.publicDashboardUrl);
             res.redirect(config.app.publicDashboardUrl);
