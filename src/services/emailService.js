@@ -25,8 +25,8 @@ class EmailService {
                 expires_at: expiresAt
             });
 
-            // Create magic link
-            const magicLink = `${config.app.publicDashboardUrl.replace('/dashboard', '')}/auth/magic/verify?token=${token}`;
+            // Create magic link - point to Railway backend
+            const magicLink = `${config.app.backendUrl}/auth/magic/verify?token=${token}`;
 
             if (this.resendApiKey) {
                 // Send email via Resend

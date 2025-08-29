@@ -46,6 +46,7 @@ const config = {
 
     app: {
         publicDashboardUrl: process.env.PUBLIC_DASHBOARD_URL || 'https://neverpayforads.com/Gabe/dashboard',
+        backendUrl: process.env.BACKEND_URL || 'https://neverpayforads-backend.railway.app',
         adminPassword: process.env.ADMIN_PASSWORD
     }
 };
