@@ -65,8 +65,13 @@ class EmailService {
 
     async verifyToken(token) {
         try {
-            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            console.log('🔐 EmailService: Starting token verification...');
+            console.log('🔐 EmailService: Token received:', token.substring(0, 20) + '...');
 
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            console.log('🔐 EmailService: Token hash:', tokenHash.substring(0, 20) + '...');
+
+            console.log('🔍 EmailService: Searching for token in database...');
             const loginToken = await LoginToken.findOne({
                 where: {
                     token_hash: tokenHash,
@@ -78,15 +83,23 @@ class EmailService {
             });
 
             if (!loginToken) {
+                console.log('❌ EmailService: Token not found or already used/expired');
+                console.log('🔍 EmailService: Current time:', new Date());
                 return null;
             }
 
+            console.log('✅ EmailService: Token found for email:', loginToken.email);
+            console.log('✅ EmailService: Token expires at:', loginToken.expires_at);
+
             // Mark token as used
+            console.log('🔄 EmailService: Marking token as used...');
             await loginToken.update({ used: true });
+            console.log('✅ EmailService: Token marked as used');
 
             return loginToken.email;
         } catch (error) {
-            console.error('Token verification failed:', error);
+            console.error('❌ EmailService: Token verification failed:', error);
+            console.error('❌ EmailService: Error stack:', error.stack);
             return null;
         }
     }

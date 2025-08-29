@@ -11,16 +11,18 @@ const config = {
         cookie: {
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
-            sameSite: 'lax',
+            sameSite: 'none', // Allow cross-site cookies
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         }
     },
 
     cors: {
         origin: process.env.NODE_ENV === 'production'
-            ? 'https://neverpayforads.com'
+            ? ['https://neverpayforads.com', 'https://www.neverpayforads.com']
             : ['http://localhost:3000', 'http://localhost:3001'],
-        credentials: true
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     },
 
     shopify: {

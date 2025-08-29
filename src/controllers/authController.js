@@ -32,36 +32,51 @@ class AuthController {
 
     async verifyMagicLink(req, res) {
         try {
+            console.log('🔐 Magic link verification started...');
+            console.log('📋 Query params:', req.query);
+
             const { token } = req.query;
 
             if (!token) {
+                console.log('❌ No token provided');
                 return res.status(400).json({
                     success: false,
                     error: 'Token is required'
                 });
             }
 
+            console.log('🔍 Token received:', token.substring(0, 20) + '...');
+
             // Verify token
+            console.log('🔐 Verifying token...');
             const email = await emailService.verifyToken(token);
 
             if (!email) {
+                console.log('❌ Token verification failed - invalid or expired');
                 return res.status(400).json({
                     success: false,
                     error: 'Invalid or expired token'
                 });
             }
 
+            console.log('✅ Token verified successfully for email:', email);
+
             // Set session
+            console.log('👤 Setting session...');
             req.session.email = email;
+            console.log('✅ Session set:', req.session);
 
             // Redirect to dashboard
+            console.log('🔄 Redirecting to:', config.app.publicDashboardUrl);
             res.redirect(config.app.publicDashboardUrl);
 
         } catch (error) {
-            console.error('Magic link verification error:', error);
+            console.error('❌ Magic link verification error:', error);
+            console.error('Error stack:', error.stack);
             res.status(500).json({
                 success: false,
-                error: 'Token verification failed'
+                error: 'Token verification failed',
+                details: error.message
             });
         }
     }
