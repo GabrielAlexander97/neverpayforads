@@ -75,9 +75,12 @@ class AuthController {
                 }
             });
 
-            // Redirect to dashboard
+            // Create a simple auth token for cross-domain access
+            const authToken = Buffer.from(email).toString('base64');
+
+            // Redirect to dashboard with auth token
             console.log('🔄 Redirecting to:', config.app.publicDashboardUrl);
-            res.redirect(config.app.publicDashboardUrl);
+            res.redirect(`${config.app.publicDashboardUrl}?auth=${authToken}`);
 
         } catch (error) {
             console.error('❌ Magic link verification error:', error);

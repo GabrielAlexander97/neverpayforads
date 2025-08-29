@@ -10,7 +10,7 @@ const config = {
         secret: process.env.SESSION_SECRET || 'your-session-secret-change-in-production',
         cookie: {
             secure: process.env.NODE_ENV === 'production',
-            httpOnly: true,
+            httpOnly: false, // Allow JavaScript access for debugging
             sameSite: 'none', // Allow cross-site cookies
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         }
